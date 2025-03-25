@@ -128,7 +128,6 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 
 			if data.angle < 1e-6 && data.angle > -1e-6 && (data.angle-angle_old)*data.dt < 1e-6 && (data.angle-angle_old)*data.dt > -1e-6 {
 				UpdatePlotTabs(plot_data, *pendulum_log)
-				pendulum_log = &PendulumLog{}
 				*running = false
 				return
 			}
@@ -137,7 +136,6 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			select {
 			case <-stopAnimation:
 				*running = false
-				pendulum_log = &PendulumLog{}
 				return
 			default:
 				time.Sleep(10 * time.Millisecond)
@@ -281,6 +279,7 @@ func main() {
 	startButton := widget.NewButton("Start", func() {
 		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			data.angle *= (3.14159 / 180)
+			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
 			if sprite_data.gopher_mode {
 				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			} else {
@@ -289,6 +288,7 @@ func main() {
 			running = true
 		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			stopAnimation <- true
+			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
 			data.angle *= (3.14159 / 180)
 			running = true
 			if sprite_data.gopher_mode {
