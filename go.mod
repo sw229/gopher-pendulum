@@ -1,10 +1,10 @@
-module example.com/mcm_project1
+module github.com/sw229/gopher-pendulum
 
 go 1.24.1
 
 require (
 	fyne.io/fyne/v2 v2.5.5
-	github.com/alexiusacademia/fynesimplechart v0.1.2
+	gonum.org/v1/plot v0.15.2
 )
 
 require (
@@ -44,6 +44,5 @@ require (
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	gonum.org/v1/plot v0.15.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

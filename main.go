@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+//go:embed default-pendulum.png
 //go:embed gopher.png
 var embedFS embed.FS
 
@@ -79,9 +80,11 @@ func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64
 	return x, y, data.t, data.angle, angle_old
 }
 
-func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, gopher *canvas.Image, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool) {
+func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, pendulum_sprite *canvas.Image, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool, gopher_mode_checkbox *widget.Check) {
 	var x, y float64
 	angle_old := data.angle - data.ang_spd*data.dt
+	gopher_mode_checkbox.Disable()
+	pendulum_sprite.Resize(fyne.NewSize(50, 50))
 
 	go func() {
 		for {
@@ -99,13 +102,14 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, goph
 			pendulum_log.time_points = append(pendulum_log.time_points, data.t)
 			pendulum_log.angle_points = append(pendulum_log.angle_points, data.angle)
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
-			gopher.Move(fyne.NewPos(float32(x-25), float32(y-25)))
+			pendulum_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
 
 			if data.angle < 1e-6 && data.angle > -1e-6 && (data.angle-angle_old)*data.dt < 1e-6 && (data.angle-angle_old)*data.dt > -1e-6 {
 				UpdatePlotTabs(plot_data, *pendulum_log)
 				pendulum_log = &PendulumLog{}
 				*running = false
+				gopher_mode_checkbox.Enable()
 				return
 			}
 			//UpdatePlotTabs(plot_data, *pendulum_log)
@@ -113,6 +117,7 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, goph
 			select {
 			case <-stopAnimation:
 				*running = false
+				gopher_mode_checkbox.Enable()
 				pendulum_log = &PendulumLog{}
 				return
 			default:
@@ -125,6 +130,9 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, goph
 func main() {
 	a := app.New()
 	w := a.NewWindow("Gopher pendulum")
+
+	default_pendulum_img_data, _ := embedFS.ReadFile("default-pendulum.png")
+	default_pendulum_img, _ := png.Decode(bytes.NewReader(default_pendulum_img_data))
 	gopher_data, _ := embedFS.ReadFile("gopher.png")
 	gopher_img, _ := png.Decode(bytes.NewReader(gopher_data))
 	gopher_icon := fyne.NewStaticResource("gopher_icon", gopher_data)
@@ -133,10 +141,10 @@ func main() {
 
 	stopAnimation := make(chan bool)
 
-	pivot_data := pivotData{len: 170, x: 395, y: 195}
+	pivot := pivotData{len: 170, x: 395, y: 195}
 
 	data := pendulumData{dt: 0.01}
-	var running bool
+	var gopher_mode, running bool
 
 	var pendulum_log PendulumLog
 
@@ -151,25 +159,30 @@ func main() {
 
 	plot_data := PlotData{osc_graph_tab_content, ang_spd_graph_tab_content, phase_diagram_tab_content}
 
+	default_pendulum_sprite := canvas.NewImageFromImage(default_pendulum_img)
+	default_pendulum_sprite.FillMode = canvas.ImageFillContain
+	default_pendulum_sprite.Resize(fyne.NewSize(50, 50))
+	default_pendulum_sprite.Move(fyne.NewPos(370, 340))
+
 	gopher := canvas.NewImageFromImage(gopher_img)
 	gopher.FillMode = canvas.ImageFillContain
-	gopher.Resize(fyne.NewSize(50, 50))
+	gopher.Resize(fyne.NewSize(0, 0))
 	gopher.Move(fyne.NewPos(370, 340))
 
 	rectangle := canvas.NewRectangle(color.White)
 	rectangle.Resize(fyne.NewSize(800, 400))
 	rectangle.Move(fyne.NewPos(-4, 0))
 
-	pivot := canvas.NewCircle(color.Black)
-	pivot.Resize(fyne.NewSize(11, 11))
-	pivot.Move(fyne.NewPos(float32(pivot_data.x-5), float32(pivot_data.y-5)))
+	pivot_sprite := canvas.NewCircle(color.Black)
+	pivot_sprite.Resize(fyne.NewSize(11, 11))
+	pivot_sprite.Move(fyne.NewPos(float32(pivot.x-5), float32(pivot.y-5)))
 
 	circle := canvas.NewCircle(color.RGBA{0, 0, 150, 255})
 	circle.Resize(fyne.NewSize(50, 50))
 	circle.Move(fyne.NewPos(370, 340))
 
 	line := canvas.NewLine(color.RGBA{111, 112, 111, 255})
-	line.Position1 = fyne.NewPos(float32(pivot_data.x), float32(pivot_data.y))
+	line.Position1 = fyne.NewPos(float32(pivot.x), float32(pivot.y))
 	line.Position2 = fyne.NewPos(395, 365)
 	line.StrokeWidth = 5
 
@@ -230,16 +243,39 @@ func main() {
 
 	disp := displays{time_display, angle_display, ang_spd_display}
 
+	gopher_mode_chekbox := widget.NewCheck("Gopher mode", func(value bool) {
+		gopher_mode = value
+		if gopher_mode {
+			gopher.Move(default_pendulum_sprite.Position())
+			gopher.Resize(fyne.NewSize(50, 50))
+			default_pendulum_sprite.Resize(fyne.NewSize(0, 0))
+		} else {
+			default_pendulum_sprite.Move(gopher.Position())
+			gopher.Resize(fyne.NewSize(0, 0))
+			default_pendulum_sprite.Resize(fyne.NewSize(50, 50))
+		}
+	})
+	gopher_mode_chekbox.Resize(fyne.NewSize(36, 36))
+	gopher_mode_chekbox.Move(fyne.NewPos(530, 500))
+
 	startButton := widget.NewButton("Start", func() {
 		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			data.angle *= (3.14159 / 180)
-			animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot_data, &pendulum_log, &running)
+			if gopher_mode {
+				animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			} else {
+				animation(stopAnimation, plot_data, &disp, default_pendulum_sprite, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			}
 			running = true
 		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			stopAnimation <- true
 			data.angle *= (3.14159 / 180)
 			running = true
-			animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot_data, &pendulum_log, &running)
+			if gopher_mode {
+				animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			} else {
+				animation(stopAnimation, plot_data, &disp, default_pendulum_sprite, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			}
 		}
 	})
 	startButton.Resize(fyne.NewSize(50, 30))
@@ -264,7 +300,8 @@ func main() {
 	main_tab_content := container.NewWithoutLayout(
 		rectangle,
 		line,
-		pivot,
+		pivot_sprite,
+		default_pendulum_sprite,
 		gopher,
 		l_label,
 		lInputField,
@@ -284,6 +321,7 @@ func main() {
 		angle_display,
 		ang_spd_display,
 		time_display,
+		gopher_mode_chekbox,
 	)
 
 	main_tab := container.NewTabItem("Анимация", main_tab_content)
