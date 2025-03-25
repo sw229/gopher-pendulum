@@ -276,7 +276,7 @@ func main() {
 		}
 	})
 	gopher_mode_chekbox.Resize(fyne.NewSize(36, 36))
-	gopher_mode_chekbox.Move(fyne.NewPos(530, 500))
+	gopher_mode_chekbox.Move(fyne.NewPos(525, 465))
 
 	startButton := widget.NewButton("Start", func() {
 		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
