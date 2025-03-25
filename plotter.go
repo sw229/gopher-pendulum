@@ -20,19 +20,22 @@ type PlotData struct {
 }
 
 func UpdatePlotTabs(plot_data PlotData, pendulum_log PendulumLog) {
-	drawGraph(plot_data.osc_graph_tab_content, pendulum_log.time_points, pendulum_log.angle_points, "α(t)", "t", "α", "angle_graph.png", true)
-	drawGraph(plot_data.ang_spd_graph_tab_content, pendulum_log.time_points, pendulum_log.ang_spd_points, "ω(t)", "t", "ω", "ang_spd_graph.png", true)
-	drawGraph(plot_data.phase_diagram_tab_content, pendulum_log.angle_points, pendulum_log.ang_spd_points, "Фазовая диаграмма", "α", "ω", "phase_diagram.png", true)
+	drawGraph(plot_data.osc_graph_tab_content, pendulum_log.time_points, pendulum_log.angle_points, "α(t)", "t", "α", "angle_graph.png", false)
+	drawGraph(plot_data.ang_spd_graph_tab_content, pendulum_log.time_points, pendulum_log.ang_spd_points, "ω(t)", "t", "ω", "ang_spd_graph.png", false)
+	drawGraph(plot_data.phase_diagram_tab_content, pendulum_log.angle_points, pendulum_log.ang_spd_points, "Фазовая диаграмма", "α", "ω", "phase_diagram.png", false)
 }
 
 func drawGraph(tab_content *fyne.Container, x, y []float64, label, label_x, label_y, filename string, save bool) {
 	plotPng(x, y, label, label_x, label_y, filename)
 	graph := canvas.NewImageFromFile(filename)
-	go func() {
+	finished := make(chan bool)
+	go func(finished chan bool) {
 		graph.Resize(fyne.NewSize(getImgDimansions(filename)))
 		tab_content.Objects = []fyne.CanvasObject{graph}
 		tab_content.Refresh()
-	}()
+		finished <- true
+	}(finished)
+	<-finished
 	if !save {
 		os.Remove(filename)
 	}

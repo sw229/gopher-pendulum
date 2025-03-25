@@ -50,6 +50,12 @@ type pivotData struct {
 	y   float64
 }
 
+type spriteData struct {
+	default_sprite *canvas.Image
+	gopher_sprite  *canvas.Image
+	gopher_mode    bool
+}
+
 func dataConvert(str string, value *float64) bool {
 	var err error
 	*value, err = strconv.ParseFloat(str, 64)
@@ -80,14 +86,29 @@ func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64
 	return x, y, data.t, data.angle, angle_old
 }
 
-func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, pendulum_sprite *canvas.Image, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool, gopher_mode_checkbox *widget.Check) {
+func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, sprite_data *spriteData, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool) {
 	var x, y float64
+	gopher_mode_old := sprite_data.gopher_mode
+	var current_sprite *canvas.Image
+	if sprite_data.gopher_mode {
+		current_sprite = sprite_data.gopher_sprite
+	} else {
+		current_sprite = sprite_data.default_sprite
+	}
+
 	angle_old := data.angle - data.ang_spd*data.dt
-	gopher_mode_checkbox.Disable()
-	pendulum_sprite.Resize(fyne.NewSize(50, 50))
 
 	go func() {
 		for {
+			if gopher_mode_old != sprite_data.gopher_mode {
+				if sprite_data.gopher_mode {
+					current_sprite = sprite_data.gopher_sprite
+				} else {
+					current_sprite = sprite_data.default_sprite
+				}
+				gopher_mode_old = sprite_data.gopher_mode
+			}
+
 			x, y, data.t, data.angle, angle_old = iteration(data, angle_old, pivot.len, pivot.x, pivot.y)
 			disp.time_display.Text = fmt.Sprintf("Время: %.2f с", data.t)
 			disp.time_display.Refresh()
@@ -102,14 +123,13 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, pend
 			pendulum_log.time_points = append(pendulum_log.time_points, data.t)
 			pendulum_log.angle_points = append(pendulum_log.angle_points, data.angle)
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
-			pendulum_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
+			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
 
 			if data.angle < 1e-6 && data.angle > -1e-6 && (data.angle-angle_old)*data.dt < 1e-6 && (data.angle-angle_old)*data.dt > -1e-6 {
 				UpdatePlotTabs(plot_data, *pendulum_log)
 				pendulum_log = &PendulumLog{}
 				*running = false
-				gopher_mode_checkbox.Enable()
 				return
 			}
 			//UpdatePlotTabs(plot_data, *pendulum_log)
@@ -117,7 +137,6 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, pend
 			select {
 			case <-stopAnimation:
 				*running = false
-				gopher_mode_checkbox.Enable()
 				pendulum_log = &PendulumLog{}
 				return
 			default:
@@ -144,8 +163,8 @@ func main() {
 	pivot := pivotData{len: 170, x: 395, y: 195}
 
 	data := pendulumData{dt: 0.01}
-	var gopher_mode, running bool
 
+	var running bool
 	var pendulum_log PendulumLog
 
 	osc_graph_tab_content := container.NewWithoutLayout()
@@ -242,17 +261,18 @@ func main() {
 	ang_spd_display.Move(fyne.NewPos(110, 480))
 
 	disp := displays{time_display, angle_display, ang_spd_display}
+	sprite_data := spriteData{default_sprite: default_pendulum_sprite, gopher_sprite: gopher}
 
 	gopher_mode_chekbox := widget.NewCheck("Gopher mode", func(value bool) {
-		gopher_mode = value
-		if gopher_mode {
-			gopher.Move(default_pendulum_sprite.Position())
-			gopher.Resize(fyne.NewSize(50, 50))
-			default_pendulum_sprite.Resize(fyne.NewSize(0, 0))
+		sprite_data.gopher_mode = value
+		if sprite_data.gopher_mode {
+			sprite_data.gopher_sprite.Move(sprite_data.default_sprite.Position())
+			sprite_data.gopher_sprite.Resize(fyne.NewSize(50, 50))
+			sprite_data.default_sprite.Resize(fyne.NewSize(0, 0))
 		} else {
-			default_pendulum_sprite.Move(gopher.Position())
-			gopher.Resize(fyne.NewSize(0, 0))
-			default_pendulum_sprite.Resize(fyne.NewSize(50, 50))
+			sprite_data.default_sprite.Move(sprite_data.gopher_sprite.Position())
+			sprite_data.gopher_sprite.Resize(fyne.NewSize(0, 0))
+			sprite_data.default_sprite.Resize(fyne.NewSize(50, 50))
 		}
 	})
 	gopher_mode_chekbox.Resize(fyne.NewSize(36, 36))
@@ -261,20 +281,20 @@ func main() {
 	startButton := widget.NewButton("Start", func() {
 		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			data.angle *= (3.14159 / 180)
-			if gopher_mode {
-				animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			if sprite_data.gopher_mode {
+				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			} else {
-				animation(stopAnimation, plot_data, &disp, default_pendulum_sprite, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			}
 			running = true
 		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
 			stopAnimation <- true
 			data.angle *= (3.14159 / 180)
 			running = true
-			if gopher_mode {
-				animation(stopAnimation, plot_data, &disp, gopher, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+			if sprite_data.gopher_mode {
+				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			} else {
-				animation(stopAnimation, plot_data, &disp, default_pendulum_sprite, line, data, pivot, &pendulum_log, &running, gopher_mode_chekbox)
+				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			}
 		}
 	})
@@ -301,8 +321,8 @@ func main() {
 		rectangle,
 		line,
 		pivot_sprite,
-		default_pendulum_sprite,
-		gopher,
+		sprite_data.default_sprite,
+		sprite_data.gopher_sprite,
 		l_label,
 		lInputField,
 		m_label,
