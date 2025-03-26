@@ -76,13 +76,19 @@ func parseInput(lInputField, mInputField, gInputField, kInputField, angleInputFi
 func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64) (float64, float64, float64, float64, float64) {
 	var accel, angle_new, x, y float64
 
-	data.t += data.dt
+	//Обновление ускорения, α(t)`` = g/l * sin(α(t)) - k/m * α`(t), где α`(t) = (α(t-dt) - α(t))/dt
 	accel = data.g/data.l*math.Sin(data.angle) - data.k/data.m*(angle_old-data.angle)/data.dt
+	//Обновление угла по методу Верле, α(t+dt) = 2*α(t) - α(t-dt) - α(t)``*dt^2
 	angle_new = 2*data.angle - angle_old - accel*data.dt*data.dt
+	// Обновление t
+	data.t += data.dt
+	// Обновление значений α(t-dt), α(t)
 	angle_old = data.angle
 	data.angle = angle_new
+	// Расчет положения маятника для анимации
 	x = float64(pivot_x) + pivot_len*math.Sin(data.angle)
 	y = float64(pivot_y) + pivot_len*math.Cos(data.angle)
+
 	return x, y, data.t, data.angle, angle_old
 }
 
@@ -96,9 +102,12 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 		current_sprite = sprite_data.default_sprite
 	}
 
+	// Так как метод Верле не использует угловую скорость напрямую, для задания начальной скорости необходимо найти угол в момент t0-dt на основе
+	// необходимо задать угол в момент t0-dt на основе начальных значений угла и угловой скорости
 	angle_old := data.angle - data.ang_spd*data.dt
 
 	go func() {
+		// Основной цикл
 		for {
 			if gopher_mode_old != sprite_data.gopher_mode {
 				if sprite_data.gopher_mode {
@@ -109,6 +118,7 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 				gopher_mode_old = sprite_data.gopher_mode
 			}
 
+			// Выполнение итерации
 			x, y, data.t, data.angle, angle_old = iteration(data, angle_old, pivot.len, pivot.x, pivot.y)
 
 			disp.time_display.Text = fmt.Sprintf("Время: %.2f с", data.t)
