@@ -234,7 +234,7 @@ func main() {
 	kInputField.Move(fyne.NewPos(320, 430))
 	kInputField.Text = "0.5"
 
-	angle_label := widget.NewLabel("α0, °")
+	angle_label := widget.NewLabel("α0, град")
 	angle_label.Move(fyne.NewPos(420, 400))
 
 	angleInputField := widget.NewEntry()
