@@ -78,7 +78,7 @@ func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64
 
 	data.t += data.dt
 	accel = data.g/data.l*math.Sin(data.angle) - data.k/data.m*(angle_old-data.angle)/data.dt
-	angle_new = 2*data.angle - angle_old - (accel)*data.dt*data.dt
+	angle_new = 2*data.angle - angle_old - accel*data.dt*data.dt
 	angle_old = data.angle
 	data.angle = angle_new
 	x = float64(pivot_x) + pivot_len*math.Sin(data.angle)
@@ -110,6 +110,7 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			}
 
 			x, y, data.t, data.angle, angle_old = iteration(data, angle_old, pivot.len, pivot.x, pivot.y)
+
 			disp.time_display.Text = fmt.Sprintf("Время: %.2f с", data.t)
 			disp.time_display.Refresh()
 			disp_angle := data.angle/math.Pi*180 - float64(360*(int(data.angle/math.Pi*180)/360))
@@ -125,13 +126,11 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
 			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
-
 			if data.angle < 1e-6 && data.angle > -1e-6 && (data.angle-angle_old)*data.dt < 1e-6 && (data.angle-angle_old)*data.dt > -1e-6 {
 				UpdatePlotTabs(plot_data, *pendulum_log)
 				*running = false
 				return
 			}
-			//UpdatePlotTabs(plot_data, *pendulum_log)
 
 			select {
 			case <-stopAnimation:
@@ -203,7 +202,7 @@ func main() {
 	line.Position2 = fyne.NewPos(395, 365)
 	line.StrokeWidth = 5
 
-	l_label := widget.NewLabel("Длина")
+	l_label := widget.NewLabel("Длина, м")
 	l_label.Move(fyne.NewPos(0, 400))
 
 	lInputField := widget.NewEntry()
@@ -211,7 +210,7 @@ func main() {
 	lInputField.Move(fyne.NewPos(5, 430))
 	lInputField.Text = "1"
 
-	m_label := widget.NewLabel("Масса")
+	m_label := widget.NewLabel("Масса, кг")
 	m_label.Move(fyne.NewPos(105, 400))
 
 	mInputField := widget.NewEntry()
@@ -219,7 +218,7 @@ func main() {
 	mInputField.Move(fyne.NewPos(110, 430))
 	mInputField.Text = "1"
 
-	g_label := widget.NewLabel("g")
+	g_label := widget.NewLabel("g, м/с^2")
 	g_label.Move(fyne.NewPos(210, 400))
 
 	gInputField := widget.NewEntry()
@@ -235,7 +234,7 @@ func main() {
 	kInputField.Move(fyne.NewPos(320, 430))
 	kInputField.Text = "0.5"
 
-	angle_label := widget.NewLabel("Начльн угол")
+	angle_label := widget.NewLabel("Начльн угол, °")
 	angle_label.Move(fyne.NewPos(420, 400))
 
 	angleInputField := widget.NewEntry()
@@ -243,7 +242,7 @@ func main() {
 	angleInputField.Move(fyne.NewPos(425, 430))
 	angleInputField.Text = "70"
 
-	ang_spd_label := widget.NewLabel("Начальн угл скор")
+	ang_spd_label := widget.NewLabel("Начальн угл скор, град/с")
 	ang_spd_label.Move(fyne.NewPos(525, 400))
 
 	angSpdInputField := widget.NewEntry()
