@@ -66,8 +66,8 @@ func dataConvert(str string, value *float64) bool {
 	}
 }
 
-func parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField *widget.Entry, data *pendulumData) bool {
-	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || data.l == 0 || data.m == 0 {
+func parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField *widget.Entry, data *pendulumData) bool {
+	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || !dataConvert(dtInputField.Text, &data.dt) || data.l == 0 || data.m == 0 || data.dt == 0 {
 		return false
 	}
 	return true
@@ -126,7 +126,7 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
 			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
-			if data.angle < 1e-6 && data.angle > -1e-6 && (data.angle-angle_old)*data.dt < 1e-6 && (data.angle-angle_old)*data.dt > -1e-6 {
+			if disp_angle/180*math.Pi < 6e-7 && disp_angle/180*math.Pi > -6e-7 && (data.angle-angle_old)*data.dt < 6e-7 && (data.angle-angle_old)*data.dt > -6e-7 {
 				UpdatePlotTabs(plot_data, *pendulum_log)
 				*running = false
 				return
@@ -137,7 +137,7 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 				*running = false
 				return
 			default:
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(time.Duration(data.dt * float64(time.Second)))
 			}
 		}
 	}()
@@ -159,7 +159,7 @@ func main() {
 
 	pivot := pivotData{len: 170, x: 395, y: 195}
 
-	data := pendulumData{dt: 0.01}
+	data := pendulumData{}
 
 	var running bool
 	var pendulum_log PendulumLog
@@ -234,7 +234,7 @@ func main() {
 	kInputField.Move(fyne.NewPos(320, 430))
 	kInputField.Text = "0.5"
 
-	angle_label := widget.NewLabel("Начльн угол, °")
+	angle_label := widget.NewLabel("α0, °")
 	angle_label.Move(fyne.NewPos(420, 400))
 
 	angleInputField := widget.NewEntry()
@@ -242,13 +242,21 @@ func main() {
 	angleInputField.Move(fyne.NewPos(425, 430))
 	angleInputField.Text = "70"
 
-	ang_spd_label := widget.NewLabel("Начальн угл скор, град/с")
+	ang_spd_label := widget.NewLabel("ω0, град/с")
 	ang_spd_label.Move(fyne.NewPos(525, 400))
 
 	angSpdInputField := widget.NewEntry()
 	angSpdInputField.Resize(fyne.NewSize(100, 36))
 	angSpdInputField.Move(fyne.NewPos(530, 430))
 	angSpdInputField.Text = "0"
+
+	dt_label := widget.NewLabel("dt, с")
+	dt_label.Move(fyne.NewPos(630, 400))
+
+	dtInputField := widget.NewEntry()
+	dtInputField.Resize(fyne.NewSize(100, 36))
+	dtInputField.Move(fyne.NewPos(635, 430))
+	dtInputField.Text = "0.01"
 
 	time_display := widget.NewLabel("Время: 0.00 c")
 	time_display.Move(fyne.NewPos(110, 495))
@@ -276,7 +284,7 @@ func main() {
 	gopher_mode_chekbox.Move(fyne.NewPos(525, 465))
 
 	startButton := widget.NewButton("Start", func() {
-		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
+		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField, &data) {
 			data.angle *= (3.14159 / 180)
 			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
 			if sprite_data.gopher_mode {
@@ -285,7 +293,7 @@ func main() {
 				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			}
 			running = true
-		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, &data) {
+		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField, &data) {
 			stopAnimation <- true
 			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
 			data.angle *= (3.14159 / 180)
@@ -334,6 +342,8 @@ func main() {
 		angleInputField,
 		ang_spd_label,
 		angSpdInputField,
+		dt_label,
+		dtInputField,
 		startButton,
 		stopButton,
 		closeButton,
