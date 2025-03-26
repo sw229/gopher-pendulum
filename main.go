@@ -67,7 +67,7 @@ func dataConvert(str string, value *float64) bool {
 }
 
 func parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField *widget.Entry, data *pendulumData) bool {
-	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || !dataConvert(dtInputField.Text, &data.dt) || data.l == 0 || data.m == 0 || data.dt == 0 {
+	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || !dataConvert(dtInputField.Text, &data.dt) || data.l == 0 || data.m == 0 || data.dt == 0 || data.dt < 0.001 {
 		return false
 	}
 	return true
@@ -94,6 +94,7 @@ func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64
 
 func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, sprite_data *spriteData, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool) {
 	var x, y float64
+	var stop_count int
 	gopher_mode_old := sprite_data.gopher_mode
 	var current_sprite *canvas.Image
 	if sprite_data.gopher_mode {
@@ -136,10 +137,16 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
 			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
-			if disp_angle/180*math.Pi < 6e-7 && disp_angle/180*math.Pi > -6e-7 && (data.angle-angle_old)*data.dt < 6e-7 && (data.angle-angle_old)*data.dt > -6e-7 {
-				UpdatePlotTabs(plot_data, *pendulum_log)
-				*running = false
-				return
+			fmt.Println("angle: ", data.angle, " Ang spd: ", (data.angle-angle_old)*data.dt)
+			if disp_angle/180*math.Pi < 5e-5 && disp_angle/180*math.Pi > -5e-5 && (data.angle-angle_old)*data.dt < 5e-5 && (data.angle-angle_old)*data.dt > -5e-5 {
+				stop_count++
+				if stop_count == 3 {
+					UpdatePlotTabs(plot_data, *pendulum_log)
+					*running = false
+					return
+				}
+			} else {
+				stop_count = 0
 			}
 
 			select {
@@ -228,7 +235,7 @@ func main() {
 	mInputField.Move(fyne.NewPos(110, 430))
 	mInputField.Text = "1"
 
-	g_label := widget.NewLabel("g, м/с^2")
+	g_label := widget.NewLabel("g, м/с²")
 	g_label.Move(fyne.NewPos(210, 400))
 
 	gInputField := widget.NewEntry()
