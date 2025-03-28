@@ -42,6 +42,8 @@ type PendulumLog struct {
 	time_points    []float64
 	angle_points   []float64
 	ang_spd_points []float64
+	max_points     []float64
+	min_points     []float64
 }
 
 type pivotData struct {
@@ -67,7 +69,7 @@ func dataConvert(str string, value *float64) bool {
 }
 
 func parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField *widget.Entry, data *pendulumData) bool {
-	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || !dataConvert(dtInputField.Text, &data.dt) || data.l == 0 || data.m == 0 || data.dt == 0 || data.dt < 0.001 {
+	if !dataConvert(lInputField.Text, &data.l) || !dataConvert(mInputField.Text, &data.m) || !dataConvert(gInputField.Text, &data.g) || !dataConvert(kInputField.Text, &data.k) || !dataConvert(angleInputField.Text, &data.angle) || !dataConvert(angSpdInputField.Text, &data.ang_spd) || !dataConvert(dtInputField.Text, &data.dt) || data.l == 0 || data.m == 0 || data.dt == 0 || data.dt < 0.001 || data.dt > 0.25 {
 		return false
 	}
 	return true
@@ -120,7 +122,13 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			}
 
 			// Выполнение итерации
+			angle_old_old := angle_old
 			x, y, data.t, data.angle, angle_old = iteration(data, angle_old, pivot.len, pivot.x, pivot.y)
+			if angle_old > data.angle && angle_old > angle_old_old {
+				pendulum_log.max_points = append(pendulum_log.max_points, math.Mod(angle_old, 2*math.Pi))
+			} else if angle_old < angle_old_old && angle_old < data.angle {
+				pendulum_log.min_points = append(pendulum_log.min_points, math.Mod(angle_old, 2*math.Pi))
+			}
 
 			disp.time_display.Text = fmt.Sprintf("Время: %.2f с", data.t)
 			disp.time_display.Refresh()
@@ -137,10 +145,9 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			pendulum_log.ang_spd_points = append(pendulum_log.ang_spd_points, (data.angle-angle_old)/data.dt)
 			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
-			fmt.Println("angle: ", data.angle, " Ang spd: ", (data.angle-angle_old)*data.dt)
-			if disp_angle/180*math.Pi < 5e-5 && disp_angle/180*math.Pi > -5e-5 && (data.angle-angle_old)*data.dt < 5e-5 && (data.angle-angle_old)*data.dt > -5e-5 {
+			if len(pendulum_log.max_points) > 0 && len(pendulum_log.min_points) > 0 && pendulum_log.max_points[len(pendulum_log.max_points)-1] < 1e-3 && pendulum_log.min_points[len(pendulum_log.min_points)-1] > -1e-3 {
 				stop_count++
-				if stop_count == 3 {
+				if stop_count == 1 {
 					UpdatePlotTabs(plot_data, *pendulum_log)
 					*running = false
 					return
@@ -303,7 +310,7 @@ func main() {
 	startButton := widget.NewButton("Start", func() {
 		if !running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField, &data) {
 			data.angle *= (3.14159 / 180)
-			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
+			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}, []float64{}, []float64{}}
 			if sprite_data.gopher_mode {
 				animation(stopAnimation, plot_data, &disp, &sprite_data, line, data, pivot, &pendulum_log, &running)
 			} else {
@@ -312,7 +319,7 @@ func main() {
 			running = true
 		} else if running && parseInput(lInputField, mInputField, gInputField, kInputField, angleInputField, angSpdInputField, dtInputField, &data) {
 			stopAnimation <- true
-			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}}
+			pendulum_log = PendulumLog{[]float64{}, []float64{}, []float64{}, []float64{}, []float64{}}
 			data.angle *= (3.14159 / 180)
 			running = true
 			if sprite_data.gopher_mode {
