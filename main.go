@@ -96,7 +96,6 @@ func iteration(data pendulumData, angle_old, pivot_len, pivot_x, pivot_y float64
 
 func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, sprite_data *spriteData, line *canvas.Line, data pendulumData, pivot pivotData, pendulum_log *PendulumLog, running *bool) {
 	var x, y float64
-	var stop_count int
 	gopher_mode_old := sprite_data.gopher_mode
 	var current_sprite *canvas.Image
 	if sprite_data.gopher_mode {
@@ -146,16 +145,10 @@ func animation(stopAnimation chan bool, plot_data PlotData, disp *displays, spri
 			current_sprite.Move(fyne.NewPos(float32(x-25), float32(y-25)))
 			line.Position2 = fyne.NewPos(float32(x), float32(y))
 			if len(pendulum_log.max_points) > 0 && len(pendulum_log.min_points) > 0 && pendulum_log.max_points[len(pendulum_log.max_points)-1] < 1e-3 && pendulum_log.min_points[len(pendulum_log.min_points)-1] > -1e-3 {
-				stop_count++
-				if stop_count == 1 {
-					UpdatePlotTabs(plot_data, *pendulum_log)
-					*running = false
-					return
-				}
-			} else {
-				stop_count = 0
+				UpdatePlotTabs(plot_data, *pendulum_log)
+				*running = false
+				return
 			}
-
 			select {
 			case <-stopAnimation:
 				*running = false
